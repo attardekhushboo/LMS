@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { sql } from "@/lib/db"
+import { updateCourseProgress } from "@/lib/progress"
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,13 @@ export async function POST(request: Request) {
       INSERT INTO assignment_submissions (assignment_id, user_id, submission_text, status)
       VALUES (${assignmentId}, ${session.user.id}, ${content}, 'submitted')
     `
+    
+    // Update course progress
+    const [assignmentRow] = await sql`SELECT course_id FROM assignments WHERE id = ${assignmentId}`
+    if (assignmentRow?.course_id) {
+      await updateCourseProgress(session.user.id, assignmentRow.course_id)
+    }
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Submit assignment error:", error)

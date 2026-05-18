@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
@@ -8,6 +8,7 @@ import { signOut, useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { toast } from "sonner"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +36,242 @@ import {
   Building2,
   UserCheck,
   Sparkles,
+  Bell,
+  Clock,
 } from "lucide-react"
+
+interface NotificationItem {
+  id: string
+  title: string
+  description: string
+  type: "enrollment" | "submission" | "deadline"
+  timestamp: string
+  link: string
+  read: boolean
+}
+
+function formatRelativeTime(dateStr: string) {
+  try {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    if (diffMs < 0) return "just now"
+    const diffSec = Math.floor(diffMs / 1000)
+    if (diffSec < 60) return "just now"
+    const diffMin = Math.floor(diffSec / 60)
+    if (diffMin < 60) return `${diffMin}m ago`
+    const diffHr = Math.floor(diffMin / 60)
+    if (diffHr < 24) return `${diffHr}h ago`
+    const diffDays = Math.floor(diffHr / 24)
+    if (diffDays === 1) return "yesterday"
+    return `${diffDays} days ago`
+  } catch {
+    return "recently"
+  }
+}
+
+function NotificationBell() {
+  const { data: session } = useSession()
+  const role = (session?.user as any)?.role as string
+  const isTeacher = role === "teacher"
+  const isStudent = role === "student"
+  const isInstitution = role === "institution"
+  const isNotificationEnabled = isTeacher || isStudent || isInstitution
+  const userId = session?.user?.id || ""
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [readIds, setReadIds] = useState<string[]>([])
+
+  // Load read status list from localStorage
+  useEffect(() => {
+    if (userId) {
+      const stored = localStorage.getItem(`read-notifications-${userId}`)
+      if (stored) {
+        try {
+          setReadIds(JSON.parse(stored))
+        } catch {
+          setReadIds([])
+        }
+      } else {
+        setReadIds([])
+      }
+    }
+  }, [userId])
+
+  const fetchNotifications = async () => {
+    if (!isNotificationEnabled) return
+    setLoading(true)
+    setError(null)
+    try {
+      let fetchUrl = "/api/student/notifications"
+      if (isTeacher) fetchUrl = "/api/teacher/notifications"
+      if (isInstitution) fetchUrl = "/api/institution/notifications"
+      
+      const res = await fetch(fetchUrl)
+      if (!res.ok) {
+        throw new Error("Failed to load notifications")
+      }
+      const data = await res.json()
+      setNotifications(data.notifications || [])
+    } catch (e: any) {
+      console.error(e)
+      setError(e.message || "Failed to load notifications")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Initial fetch
+  useEffect(() => {
+    if (isNotificationEnabled) {
+      fetchNotifications()
+    }
+  }, [isNotificationEnabled])
+
+  // Periodic poll every 30 seconds for real-time dashboard updates
+  useEffect(() => {
+    if (!isNotificationEnabled) return
+    const interval = setInterval(() => {
+      fetchNotifications()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [isNotificationEnabled])
+
+  const handleMarkAsRead = (id: string) => {
+    if (!userId) return
+    const updated = [...readIds, id]
+    setReadIds(updated)
+    localStorage.setItem(`read-notifications-${userId}`, JSON.stringify(updated))
+  }
+
+  const handleMarkAllAsRead = () => {
+    if (!userId || notifications.length === 0) return
+    const allIds = notifications.map((n) => n.id)
+    const updated = Array.from(new Set([...readIds, ...allIds]))
+    setReadIds(updated)
+    localStorage.setItem(`read-notifications-${userId}`, JSON.stringify(updated))
+    toast.success("All notifications marked as read")
+  }
+
+  // If not enabled, hide
+  if (!isNotificationEnabled) {
+    return null
+  }
+
+  const mappedNotifications = notifications.map((n) => ({
+    ...n,
+    read: readIds.includes(n.id),
+  }))
+
+  const unreadCount = mappedNotifications.filter((n) => !n.read).length
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full hover:bg-gray-100/80 transition-colors">
+          <Bell className="h-5 w-5 text-gray-600" />
+          {unreadCount > 0 && (
+            <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white ring-2 ring-white">
+              {unreadCount}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80 rounded-2xl p-0 shadow-2xl border border-gray-100 bg-white/95 backdrop-blur-md overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100/80">
+          <span className="font-extrabold text-gray-800 text-sm">Notifications</span>
+          {unreadCount > 0 && (
+            <button 
+              onClick={handleMarkAllAsRead}
+              className="text-xs font-bold text-cyan-600 hover:text-cyan-700 transition-colors"
+            >
+              Mark all as read
+            </button>
+          )}
+        </div>
+        <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
+          {loading && (
+            <div className="p-4 space-y-3.5">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3 animate-pulse">
+                  <div className="h-8 w-8 bg-slate-100 rounded-xl" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-2.5 bg-slate-100 rounded w-3/4" />
+                    <div className="h-2 bg-slate-100 rounded w-1/4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {error && (
+            <div className="py-6 px-4 text-center">
+              <p className="text-xs text-rose-500 font-bold mb-2">{error}</p>
+              <Button 
+                size="sm" 
+                onClick={fetchNotifications}
+                className="h-7 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-[10px] font-bold text-white px-3"
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {!loading && !error && mappedNotifications.length > 0 ? (
+            mappedNotifications.map((n) => {
+              let iconBg = "bg-blue-50 text-blue-500"
+              let IconComponent = Clock
+              if (n.type === "enrollment") {
+                iconBg = "bg-emerald-50 text-emerald-500"
+                IconComponent = Users
+              } else if (n.type === "submission") {
+                iconBg = "bg-orange-50 text-orange-500"
+                IconComponent = FileText
+              }
+
+              return (
+                <DropdownMenuItem 
+                  key={n.id} 
+                  asChild
+                  onClick={() => handleMarkAsRead(n.id)}
+                  className="focus:bg-transparent"
+                >
+                  <Link href={n.link} className={cn(
+                    "flex items-start gap-3 p-3.5 transition-colors cursor-pointer text-left block w-full",
+                    !n.read ? "bg-cyan-50/20 hover:bg-cyan-50/40" : "hover:bg-gray-50/50"
+                  )}>
+                    <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-xl", iconBg)}>
+                      <IconComponent className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-xs leading-normal text-gray-700", !n.read ? "font-bold" : "font-medium")}>
+                        {n.description}
+                      </p>
+                      <span className="text-[10px] text-gray-400 font-semibold block mt-1">
+                        {formatRelativeTime(n.timestamp)}
+                      </span>
+                    </div>
+                    {!n.read && (
+                      <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0 mt-1.5" />
+                    )}
+                  </Link>
+                </DropdownMenuItem>
+              )
+            })
+          ) : (
+            !loading && !error && (
+              <div className="py-8 text-center text-gray-400 text-xs font-semibold px-4">
+                You have no new notifications.
+              </div>
+            )
+          )}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 interface NavItem {
   label: string
@@ -96,7 +332,7 @@ export function DashboardLayout({ children, role }: { children: React.ReactNode,
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const activeRole = role || (session?.user?.role as string) || "student"
+  const activeRole = role || ((session?.user as any)?.role as string) || "student"
   const navItems = roleNavItems[activeRole] || roleNavItems.student
   const gradient = roleGradients[activeRole] || roleGradients.student
   const bgGradient = roleBgGradients[activeRole] || roleBgGradients.student
@@ -211,40 +447,47 @@ export function DashboardLayout({ children, role }: { children: React.ReactNode,
             </span>
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar className="h-10 w-10 ring-2 ring-violet-200">
-                  <AvatarFallback className={`bg-gradient-to-br ${gradient} font-bold text-white`}>
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{session?.user?.name}</p>
-                  <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href={`/dashboard/${activeRole}/settings`} className="cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => signOut({ callbackUrl: "/" })}
-                className="cursor-pointer text-rose-600 focus:text-rose-600"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-3">
+            {/* Header Notification Bell Dropdown */}
+            {(activeRole === "teacher" || activeRole === "student" || activeRole === "institution") && (
+              <NotificationBell />
+            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                  <Avatar className="h-10 w-10 ring-2 ring-violet-200">
+                    <AvatarFallback className={`bg-gradient-to-br ${gradient} font-bold text-white`}>
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium">{session?.user?.name}</p>
+                    <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href={`/dashboard/${activeRole}/settings`} className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="cursor-pointer text-rose-600 focus:text-rose-600"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
 
         {/* Page Content */}

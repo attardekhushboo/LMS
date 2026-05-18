@@ -45,7 +45,7 @@ export async function GET() {
     const assignments = await sql`
       SELECT 
         a.id, a.title, a.description, a.due_date, a.max_score, a.file_url,
-        c.title as course_title, c.id as course_id,
+        c.title as course_title, c.id as course_id, c.class as course_class,
         (SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id = a.id) as submission_count,
         (SELECT COUNT(*) FROM assignment_submissions WHERE assignment_id = a.id AND status = 'submitted') as pending_count
       FROM assignments a
@@ -127,6 +127,12 @@ export async function POST(request: Request) {
     `
     if (!course) {
       return NextResponse.json({ error: "Course not found or access denied." }, { status: 403 })
+    }
+
+    // ── Check for duplicate title within the same course ──────────────────────────
+    const existingAssignment = await sql`SELECT id FROM assignments WHERE course_id = ${courseId} AND title = ${title.trim()} LIMIT 1`
+    if (existingAssignment.length > 0) {
+      return NextResponse.json({ error: "Assignment with this title already exists in this course." }, { status: 409 })
     }
 
     // ── Insert assignment ──────────────────────────────────────────────────────

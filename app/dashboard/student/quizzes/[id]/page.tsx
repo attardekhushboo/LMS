@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
@@ -13,21 +13,24 @@ import { toast } from "sonner"
 import confetti from "canvas-confetti"
 import { 
   Trophy, CheckCircle, XCircle, Clock, ArrowLeft, 
-  HelpCircle, Rocket, Star, ShieldCheck, AlertCircle, Loader2
+  Rocket, Loader2
 } from "lucide-react"
 import Link from "next/link"
 
 interface Question {
   id: string
   question: string
-  points: number
   order_number: number
+  option1: string
+  option2: string
+  option3: string
+  option4: string
 }
 
-interface Option {
-  id: string
-  question_id: string
-  option_text: string
+interface Attempt {
+  score: number
+  submitted_at: string
+  passed: boolean
 }
 
 interface QuizData {
@@ -35,8 +38,9 @@ interface QuizData {
   title: string
   time_limit: number
   passing_score: number
+  max_attempts: number
   questions: Question[]
-  options: Option[]
+  attempts: Attempt[]
   completed: boolean
   previousScore?: number
 }
@@ -47,7 +51,8 @@ export default function StudentQuizPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, string>>({})
+  // answers maps questionId → 1-based option number (1, 2, 3, or 4)
+  const [answers, setAnswers] = useState<Record<string, number>>({})
   const [result, setResult] = useState<{ score: number, passed: boolean, correct: number, total: number } | null>(null)
 
   useEffect(() => {
@@ -60,13 +65,19 @@ export default function StudentQuizPage({ params }: { params: Promise<{ id: stri
       if (res.ok) {
         const data = await res.json()
         setQuiz(data)
-        if (data.completed) {
-           setResult({ score: data.previousScore, passed: data.previousScore >= 70, correct: 0, total: data.questions.length })
+        // If already completed with a passing score, show result screen
+        if (data.completed && data.previousScore !== undefined) {
+          setResult({ 
+            score: data.previousScore, 
+            passed: data.previousScore >= (data.passing_score || 70), 
+            correct: 0, 
+            total: data.questions?.length || 0 
+          })
         }
       } else {
         toast.error("Failed to load quiz.")
       }
-    } catch (e) {
+    } catch {
       toast.error("Connection error.")
     } finally {
       setLoading(false)
@@ -74,17 +85,19 @@ export default function StudentQuizPage({ params }: { params: Promise<{ id: stri
   }
 
   async function handleSubmit() {
-    if (Object.keys(answers).length < (quiz?.questions.length || 0)) {
-       toast.warning("Please answer all questions before submitting.")
-       return
+    if (!quiz) return
+    if (Object.keys(answers).length < quiz.questions.length) {
+      toast.warning("Please answer all questions before submitting.")
+      return
     }
 
     setSubmitting(true)
     try {
-      const res = await fetch("/api/student/quizzes/submit", {
+      // POST to /api/student/quizzes/[id] which expects { answers: { questionId: orderNumber } }
+      const res = await fetch(`/api/student/quizzes/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quizId: id, answers })
+        body: JSON.stringify({ answers })
       })
       if (res.ok) {
         const data = await res.json()
@@ -96,7 +109,7 @@ export default function StudentQuizPage({ params }: { params: Promise<{ id: stri
         const err = await res.json()
         toast.error(err.error || "Submission failed.")
       }
-    } catch (e) {
+    } catch {
       toast.error("Network error.")
     } finally {
       setSubmitting(false)
@@ -104,6 +117,25 @@ export default function StudentQuizPage({ params }: { params: Promise<{ id: stri
   }
 
   if (loading) return <div className="p-8 space-y-6"><Skeleton className="h-12 w-64" /><Skeleton className="h-96 rounded-3xl" /></div>
+
+  if (!quiz || !quiz.questions || quiz.questions.length === 0) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center p-4">
+        <Card className="max-w-md border-0 bg-white/80 shadow-2xl backdrop-blur text-center">
+          <CardContent className="p-10">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+              <Rocket className="h-8 w-8 text-amber-500" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">No Questions Available</h2>
+            <p className="text-gray-500 mb-6">This quiz doesn't have any questions yet. Check back later!</p>
+            <Button asChild className="w-full bg-violet-600 font-bold">
+              <Link href="/dashboard/student/quizzes">Back to Quizzes</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   if (result) {
     return (
@@ -116,7 +148,7 @@ export default function StudentQuizPage({ params }: { params: Promise<{ id: stri
                    {result.passed ? <Trophy className="h-10 w-10" /> : <XCircle className="h-10 w-10" />}
                 </div>
                 <h2 className="text-3xl font-black text-gray-800">{result.passed ? "Congratulations!" : "Keep Practicing!"}</h2>
-                <p className="mt-2 text-gray-500">You scored {result.score}% on the {quiz?.title}</p>
+                <p className="mt-2 text-gray-500">You scored {result.score}% on {quiz?.title}</p>
                 
                 <div className="mt-8 grid grid-cols-2 gap-4">
                    <div className="rounded-2xl bg-gray-50 p-4">
@@ -141,9 +173,14 @@ export default function StudentQuizPage({ params }: { params: Promise<{ id: stri
     )
   }
 
-  const currentQuestion = quiz?.questions[currentStep]
-  const currentOptions = quiz?.options.filter(o => o.question_id === currentQuestion?.id)
-  const isLast = currentStep === (quiz?.questions.length || 0) - 1
+  const currentQuestion = quiz.questions[currentStep]
+  const optionsList = [
+    { label: "A", text: currentQuestion.option1, value: 1 },
+    { label: "B", text: currentQuestion.option2, value: 2 },
+    { label: "C", text: currentQuestion.option3, value: 3 },
+    { label: "D", text: currentQuestion.option4, value: 4 },
+  ].filter(o => o.text) // filter out empty options
+  const isLast = currentStep === quiz.questions.length - 1
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
@@ -152,20 +189,20 @@ export default function StudentQuizPage({ params }: { params: Promise<{ id: stri
              <Link href="/dashboard/student/quizzes" className="flex items-center gap-2 text-sm font-bold text-violet-600 mb-2">
                 <ArrowLeft className="h-4 w-4" /> Exit Quiz
              </Link>
-             <h1 className="text-2xl font-black text-gray-800">{quiz?.title}</h1>
+             <h1 className="text-2xl font-black text-gray-800">{quiz.title}</h1>
           </div>
           <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-xl border border-gray-100">
              <Clock className="h-5 w-5 text-amber-500" />
-             <span className="font-bold text-gray-700">{quiz?.time_limit} MINS</span>
+             <span className="font-bold text-gray-700">{quiz.time_limit} MINS</span>
           </div>
        </div>
 
        <div className="mb-6 space-y-2">
           <div className="flex justify-between text-xs font-black text-gray-400 uppercase tracking-widest">
-             <span>Question {currentStep + 1} of {quiz?.questions.length}</span>
-             <span>{Math.round(((currentStep + 1) / (quiz?.questions.length || 1)) * 100)}% COMPLETE</span>
+             <span>Question {currentStep + 1} of {quiz.questions.length}</span>
+             <span>{Math.round(((currentStep + 1) / quiz.questions.length) * 100)}% COMPLETE</span>
           </div>
-          <Progress value={((currentStep + 1) / (quiz?.questions.length || 1)) * 100} className="h-2" />
+          <Progress value={((currentStep + 1) / quiz.questions.length) * 100} className="h-2" />
        </div>
 
        <AnimatePresence mode="wait">
@@ -182,28 +219,31 @@ export default function StudentQuizPage({ params }: { params: Promise<{ id: stri
                          Q{currentStep + 1}
                       </div>
                       <CardTitle className="text-xl leading-relaxed text-gray-800">
-                        {currentQuestion?.question}
+                        {currentQuestion.question}
                       </CardTitle>
                    </div>
                 </CardHeader>
                 <CardContent className="p-8 pt-4">
                    <RadioGroup 
-                    value={answers[currentQuestion?.id || ""]} 
-                    onValueChange={(val) => setAnswers({...answers, [currentQuestion?.id || ""]: val})}
+                    value={answers[currentQuestion.id] ? String(answers[currentQuestion.id]) : ""} 
+                    onValueChange={(val) => setAnswers({...answers, [currentQuestion.id]: parseInt(val)})}
                     className="grid gap-4"
                    >
-                      {currentOptions?.map((option) => (
+                      {optionsList.map((option) => (
                         <Label
-                          key={option.id}
+                          key={option.value}
                           className={`flex items-center gap-4 p-5 rounded-3xl border-2 transition-all cursor-pointer group hover:bg-violet-50 ${
-                            answers[currentQuestion?.id || ""] === option.id 
+                            answers[currentQuestion.id] === option.value 
                             ? "border-violet-500 bg-violet-50 ring-2 ring-violet-200" 
                             : "border-gray-100 bg-white"
                           }`}
                         >
-                          <RadioGroupItem value={option.id} className="h-5 w-5 border-2 text-violet-600" />
-                          <span className="text-lg font-medium text-gray-700 group-hover:text-violet-700">
-                            {option.option_text}
+                          <RadioGroupItem value={String(option.value)} className="h-5 w-5 border-2 text-violet-600" />
+                          <span className="flex items-center gap-3 text-lg font-medium text-gray-700 group-hover:text-violet-700">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-500">
+                              {option.label}
+                            </span>
+                            {option.text}
                           </span>
                         </Label>
                       ))}
@@ -229,7 +269,7 @@ export default function StudentQuizPage({ params }: { params: Promise<{ id: stri
                    ) : (
                      <Button 
                       onClick={() => setCurrentStep(prev => prev + 1)} 
-                      disabled={!answers[currentQuestion?.id || ""]}
+                      disabled={!answers[currentQuestion.id]}
                       className="bg-violet-600 font-black px-12 rounded-2xl"
                      >
                         Next Question

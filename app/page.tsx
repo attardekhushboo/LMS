@@ -150,13 +150,13 @@ export default function LandingPage() {
               transition={{ duration: 0.5, delay: 0.3 }}
               className="flex flex-col items-center justify-center gap-4 sm:flex-row"
             >
-              <Link href="/register">
+              <Link href="/login">
                 <Button size="lg" className="gap-2 bg-gradient-to-r from-violet-500 via-pink-500 to-rose-500 text-lg font-bold shadow-xl shadow-pink-500/30 transition-all hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/40">
                   <Rocket className="h-5 w-5" />
                   Start Learning Now
                 </Button>
               </Link>
-              <Link href="/courses">
+              <Link href="/login">
                 <Button size="lg" variant="outline" className="gap-2 border-2 border-violet-300 bg-white/50 text-lg font-bold text-violet-700 backdrop-blur hover:border-violet-400 hover:bg-violet-50">
                   <Play className="h-5 w-5" />
                   Browse Courses

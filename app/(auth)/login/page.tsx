@@ -119,6 +119,7 @@ export default function LoginPage() {
             <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-lg">
               <button
                 type="button"
+                suppressHydrationWarning
                 onClick={() => setLoginType("user")}
                 className={`flex-1 py-2 px-4 rounded transition-colors ${
                   loginType === "user"
@@ -130,6 +131,7 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
+                suppressHydrationWarning
                 onClick={() => setLoginType("institution")}
                 className={`flex-1 py-2 px-4 rounded transition-colors ${
                   loginType === "institution"
@@ -156,6 +158,7 @@ export default function LoginPage() {
                 <Input
                   id="email"
                   type="email"
+                  suppressHydrationWarning
                   placeholder={loginType === "institution" ? "institution@example.com" : "you@example.com"}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -170,6 +173,7 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type="password"
+                  suppressHydrationWarning
                   placeholder="Your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -179,8 +183,18 @@ export default function LoginPage() {
                 />
               </div>
 
+              <div className="flex justify-end">
+                <Link
+                  href={`/forgot-password?type=${loginType}`}
+                  className="text-sm font-bold text-violet-600 hover:text-pink-600 hover:underline transition-colors"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+
               <Button 
                 type="submit" 
+                suppressHydrationWarning
                 className="h-12 w-full bg-linear-to-r from-violet-500 via-pink-500 to-rose-500 text-base font-bold shadow-lg shadow-pink-500/30 transition-all hover:scale-[1.02] hover:shadow-xl" 
                 disabled={isLoading}
               >
@@ -200,24 +214,6 @@ export default function LoginPage() {
               <Link href="/register" className="font-bold text-violet-600 hover:text-pink-600 hover:underline">
                 Create one!
               </Link>
-            </div>
-
-            <div className="mt-6 rounded-2xl bg-linear-to-r from-violet-50 to-pink-50 p-5 ring-1 ring-violet-200/50">
-              <p className="mb-3 font-bold text-gray-700">Demo Accounts:</p>
-              <div className="space-y-1.5 text-sm text-gray-600">
-                {loginType === "user" ? (
-                  <>
-                    <p><span className="font-semibold text-pink-600">Teacher:</span> teacher@nextgenschool.com</p>
-                    <p><span className="font-semibold text-cyan-600">Student:</span> student@nextgenschool.com</p>
-                  </>
-                ) : (
-                  <>
-                    <p><span className="font-semibold text-indigo-600">Institution:</span> harvard@institution.com</p>
-                    <p><span className="font-semibold text-indigo-600">Institution:</span> stanford@institution.com</p>
-                  </>
-                )}
-                <p className="mt-3 text-xs text-gray-500">Password for all: <span className="font-mono font-semibold">demo123</span></p>
-              </div>
             </div>
           </CardContent>
         </Card>

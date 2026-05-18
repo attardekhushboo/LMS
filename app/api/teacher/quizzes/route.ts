@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { courseId, title, timeLimit, passingScore, maxAttempts, questions } = await request.json()
+    const { courseId, title, description, timeLimit, passingScore, maxAttempts, status, questions } = await request.json()
 
     if (!courseId || !title || !questions?.length) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -73,10 +73,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Course not found or you don't have permission." }, { status: 404 })
     }
 
-    // Insert quiz with teacher_id so it's correctly attributed
+    // ── Check for duplicate title within the same course ──────────────────────────
+    const existingQuiz = await sql`SELECT id FROM quizzes WHERE course_id = ${courseId} AND title = ${title} LIMIT 1`
+    if (existingQuiz.length > 0) {
+      return NextResponse.json({ error: "Quiz with this title already exists in this course." }, { status: 409 })
+    }
+
+    // Insert quiz with teacher_id, description, status so it's correctly attributed
     const quiz = await sql`
-      INSERT INTO quizzes (course_id, title, time_limit, passing_score, max_attempts, teacher_id)
-      VALUES (${courseId}, ${title}, ${timeLimit || 30}, ${passingScore || 70}, ${maxAttempts || 3}, ${teacherId})
+      INSERT INTO quizzes (course_id, title, description, time_limit, passing_score, max_attempts, status, teacher_id)
+      VALUES (${courseId}, ${title}, ${description || null}, ${timeLimit || 30}, ${passingScore || 70}, ${maxAttempts || 3}, ${status || 'published'}, ${teacherId})
       RETURNING id
     `
 

@@ -12,8 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import {
   CheckSquare, PlusCircle, Loader2, Trash2, Users, Clock,
-  Star, Rocket, Eye, EyeOff, CheckCircle, ExternalLink,
+  Star, Rocket, Eye, EyeOff, CheckCircle, ExternalLink, Plus
 } from "lucide-react"
+import { toast } from "sonner"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,7 +51,7 @@ interface QuizDetail extends Quiz {
   questions: QuizQuestion[]
 }
 
-interface Course { id: string; title: string }
+interface Course { id: string; title: string; class: number | null }
 
 interface QuestionForm {
   question: string
@@ -84,10 +85,23 @@ export default function TeacherQuizzesPage() {
   const [loadingQuizId, setLoadingQuizId] = useState<string | null>(null)
   const [viewError, setViewError] = useState<string | null>(null)
 
-  // "all" = show every class; any other string = filter to that class number
+  // Class Filter State
   const [selectedClass, setSelectedClass] = useState<string>("all")
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    // 1. Initial State Sync from URL/Localstorage
+    const params = new URLSearchParams(window.location.search)
+    const urlClass = params.get("class")
+    const localClass = localStorage.getItem("quiz_class_filter")
+    
+    if (urlClass && ["6", "7", "8", "9", "10", "all"].includes(urlClass)) {
+      setSelectedClass(urlClass)
+    } else if (localClass && ["6", "7", "8", "9", "10", "all"].includes(localClass)) {
+      setSelectedClass(localClass)
+    }
+
+    fetchData()
+  }, [])
 
   async function fetchData() {
     const [qRes, cRes] = await Promise.all([
@@ -100,9 +114,7 @@ export default function TeacherQuizzesPage() {
   }
 
   async function handleToggleQuestions(quizId: string) {
-    // Collapse if already open
     if (expandedQuizId === quizId) { setExpandedQuizId(null); return }
-    // Already fetched — just expand
     if (quizDetails[quizId]) { setExpandedQuizId(quizId); return }
 
     setLoadingQuizId(quizId)
@@ -126,11 +138,29 @@ export default function TeacherQuizzesPage() {
     }
   }
 
+  // Open Create Dialog with Smart Default class mapping
+  function handleOpenCreateDialog() {
+    let defaultCourseId = ""
+    if (selectedClass !== "all") {
+      const matchingCourse = courses.find(c => {
+        const classNum = parseInt(selectedClass, 10)
+        const courseClass = typeof c.class === 'number' ? c.class : parseInt(String(c.class).replace(/\D/g, ""), 10)
+        return courseClass === classNum && !quizzes.some(q => String(q.course_id) === String(c.id))
+      })
+      if (matchingCourse) {
+        defaultCourseId = String(matchingCourse.id)
+      }
+    }
+    setForm({ courseId: defaultCourseId, title: "", timeLimit: 30, passingScore: 70, maxAttempts: 3 })
+    setQuestions([defaultQuestion()])
+    setCreateError(null)
+    setDialogOpen(true)
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setCreateError(null)
 
-    // Client-side validation
     if (!form.courseId) { setCreateError("Please select a course."); return }
     if (!form.title.trim()) { setCreateError("Please enter a quiz title."); return }
     for (let i = 0; i < questions.length; i++) {
@@ -155,6 +185,7 @@ export default function TeacherQuizzesPage() {
         setForm({ courseId: "", title: "", timeLimit: 30, passingScore: 70, maxAttempts: 3 })
         setQuestions([defaultQuestion()])
         fetchData()
+        toast.success("Quiz created successfully!")
       } else {
         setCreateError(data.error || "Failed to create quiz. Please try again.")
       }
@@ -165,29 +196,30 @@ export default function TeacherQuizzesPage() {
     }
   }
 
-  // ── Grouping logic ──────────────────────────────────────────────────────────
-  // Group quizzes by course_class. null class → "unassigned"
-  const grouped: Record<string, Quiz[]> = quizzes.reduce((acc, quiz) => {
+  // ── Grouping & Filtering Logic ──────────────────────────────────────────────
+  
+  // Filter quizzes based on selected class
+  const filteredQuizzes = quizzes.filter(quiz => {
+    if (selectedClass === "all") return true
+    const classNum = parseInt(selectedClass, 10)
+    return quiz.course_class === classNum
+  })
+
+  // Group filtered quizzes by class (unassigned as "?" or unassigned)
+  const grouped: Record<string, Quiz[]> = filteredQuizzes.reduce((acc, quiz) => {
     const key = quiz.course_class != null ? String(quiz.course_class) : "unassigned"
     if (!acc[key]) acc[key] = []
     acc[key].push(quiz)
     return acc
   }, {} as Record<string, Quiz[]>)
 
-  // Numeric classes ascending, "unassigned" last
+  // Sort class keys ascending
   const sortedClassKeys = Object.keys(grouped).sort((a, b) => {
     if (a === "unassigned") return 1
     if (b === "unassigned") return -1
     return Number(a) - Number(b)
   })
 
-  const availableClasses = sortedClassKeys.filter(k => k !== "unassigned")
-
-  const visibleClassKeys = selectedClass === "all"
-    ? sortedClassKeys
-    : sortedClassKeys.filter(k => k === selectedClass)
-
-  // ── Loading ─────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex min-h-[50vh] items-center justify-center">
       <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
@@ -196,46 +228,53 @@ export default function TeacherQuizzesPage() {
     </div>
   )
 
-  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-8">
-
-      {/* ── Header ── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row gap-6 sm:items-center sm:justify-between px-1">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-800">Quizzes</h1>
-          <p className="text-gray-500">Create and manage quizzes for your courses</p>
+          <h1 className="text-3xl font-black text-gray-800 tracking-tight">Quizzes</h1>
+          <p className="text-gray-500 font-medium">Create and manage quizzes for your courses</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Class filter — only shown when there are multiple classes */}
-          {availableClasses.length > 1 && (
-            <Select value={selectedClass} onValueChange={setSelectedClass}>
-              <SelectTrigger className="w-36 bg-white/80">
-                <SelectValue placeholder="All Classes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Classes</SelectItem>
-                {availableClasses.map(cls => (
-                  <SelectItem key={cls} value={cls}>Class {cls}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          {/* Class Filter Dropdown */}
+          <Select 
+            value={selectedClass} 
+            onValueChange={(val) => {
+              setSelectedClass(val)
+              localStorage.setItem("quiz_class_filter", val)
+              const url = new URL(window.location.href)
+              if (val === "all") url.searchParams.delete("class")
+              else url.searchParams.set("class", val)
+              window.history.pushState({}, "", url.toString())
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-52 h-[44px] rounded-[12px] bg-white border border-slate-400/20 text-slate-600 font-medium shadow-sm hover:bg-slate-50/50 transition-colors">
+              <SelectValue placeholder="All Classes" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl shadow-lg border-gray-100">
+              <SelectItem value="all" className="font-medium text-slate-700">All Classes</SelectItem>
+              <SelectItem value="6" className="font-medium text-slate-700">Class 6</SelectItem>
+              <SelectItem value="7" className="font-medium text-slate-700">Class 7</SelectItem>
+              <SelectItem value="8" className="font-medium text-slate-700">Class 8</SelectItem>
+              <SelectItem value="9" className="font-medium text-slate-700">Class 9</SelectItem>
+              <SelectItem value="10" className="font-medium text-slate-700">Class 10</SelectItem>
+            </SelectContent>
+          </Select>
 
-          {/* Create Quiz dialog */}
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setCreateError(null) }}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 bg-gradient-to-r from-cyan-500 to-blue-500">
-                <PlusCircle className="h-5 w-5" /> Create Quiz
-              </Button>
-            </DialogTrigger>
+          {/* Create Quiz Button */}
+          <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) setDialogOpen(false) }}>
+            <Button 
+              onClick={handleOpenCreateDialog}
+              className="w-full sm:w-auto h-[44px] px-6 rounded-[12px] bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold text-base shadow-[0_8px_20px_rgba(6,182,212,0.25)] hover:shadow-[0_12px_24px_rgba(6,182,212,0.35)] hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98] transition-all duration-300 ease-in-out flex items-center justify-center gap-2"
+            >
+              <Plus className="h-5 w-5" /> Create Quiz
+            </Button>
 
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Create New Quiz</DialogTitle></DialogHeader>
               <form onSubmit={handleCreate} className="space-y-5">
-
-                {/* Error banner */}
                 {createError && (
                   <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
                     {createError}
@@ -248,7 +287,14 @@ export default function TeacherQuizzesPage() {
                     <Select value={form.courseId} onValueChange={v => setForm(p => ({ ...p, courseId: v }))}>
                       <SelectTrigger><SelectValue placeholder="Select a course" /></SelectTrigger>
                       <SelectContent>
-                        {courses.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.title}</SelectItem>)}
+                        {courses.map(c => {
+                          const hasQuiz = quizzes.some(q => String(q.course_id) === String(c.id))
+                          return (
+                            <SelectItem key={c.id} value={String(c.id)} disabled={hasQuiz}>
+                              {c.title} {hasQuiz && <span className="text-gray-400 ml-1">(Has Quiz)</span>}
+                            </SelectItem>
+                          )
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -333,42 +379,41 @@ export default function TeacherQuizzesPage() {
         </div>
       </div>
 
-      {/* ── Grouped quiz sections ── */}
       {viewError && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 flex items-center justify-between">
           <span>{viewError}</span>
           <button onClick={() => setViewError(null)} className="ml-4 text-rose-400 hover:text-rose-600">✕</button>
         </div>
       )}
-      {quizzes.length > 0 ? (
+
+      {/* Grouped & Filtered Quizzes display */}
+      {filteredQuizzes.length > 0 ? (
         <div className="space-y-10">
-          {visibleClassKeys.map(classKey => {
+          {sortedClassKeys.map(classKey => {
             const classQuizzes = grouped[classKey]
-            const classLabel = classKey === "unassigned" ? "Unassigned" : `Class ${classKey}`
+            const classLabel = classKey === "unassigned" ? "Unassigned Quizzes" : `Class ${classKey}`
 
             return (
               <div key={classKey} className="space-y-4">
-
-                {/* ── Class heading ── */}
+                {/* Class heading */}
                 <div className="flex items-center gap-3">
                   <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white shadow-md ${
                     classKey === "unassigned"
                       ? "bg-gray-400"
-                      : "bg-gradient-to-br from-violet-500 to-purple-600"
+                      : "bg-gradient-to-br from-cyan-500 to-blue-600"
                   }`}>
                     {classKey === "unassigned" ? "?" : classKey}
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-gray-800">{classLabel}</h2>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 font-medium">
                       {classQuizzes.length} quiz{classQuizzes.length !== 1 ? "zes" : ""}
                     </p>
                   </div>
-                  {/* Divider line */}
-                  <div className="flex-1 h-px bg-gray-200 ml-2" />
+                  <div className="flex-1 h-px bg-gray-200/60 ml-2" />
                 </div>
 
-                {/* ── Quiz cards for this class ── */}
+                {/* Cards Grid */}
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {classQuizzes.map((quiz, index) => {
                     const isExpanded = expandedQuizId === quiz.id
@@ -378,19 +423,19 @@ export default function TeacherQuizzesPage() {
                     return (
                       <motion.div
                         key={quiz.id}
+                        layout
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.07 }}
+                        transition={{ delay: index * 0.05 }}
                         className={isExpanded ? "sm:col-span-2 lg:col-span-3" : ""}
                       >
-                        <Card className="border-0 bg-white/80 shadow-xl backdrop-blur overflow-hidden">
+                        <Card className="border-0 bg-white/80 shadow-xl backdrop-blur overflow-hidden rounded-2xl">
                           <CardContent className="p-0">
-
                             {/* Banner */}
-                            <div className="h-32 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-t-lg flex items-center justify-center relative">
+                            <div className="h-32 bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center relative">
                               <CheckSquare className="h-14 w-14 text-white/30" />
                               <div className="absolute right-3 top-3">
-                                <Badge className="bg-white/20 text-white backdrop-blur">
+                                <Badge className="bg-white/20 text-white backdrop-blur border-0 font-bold">
                                   {quiz.question_count} Qs
                                 </Badge>
                               </div>
@@ -398,20 +443,20 @@ export default function TeacherQuizzesPage() {
 
                             {/* Body */}
                             <div className="p-5">
-                              <p className="text-sm font-medium text-cyan-600 mb-1">{quiz.course_title}</p>
-                              <h3 className="text-lg font-bold text-gray-800 mb-3">{quiz.title}</h3>
-                              <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-4">
-                                <span className="flex items-center gap-1"><Clock className="h-4 w-4" />{quiz.time_limit} min</span>
-                                <span className="flex items-center gap-1"><Star className="h-4 w-4" />{quiz.passing_score}%</span>
-                                <span className="flex items-center gap-1"><Users className="h-4 w-4" />{quiz.submission_count} attempts</span>
+                              <p className="text-sm font-bold text-cyan-600 mb-1">{quiz.course_title}</p>
+                              <h3 className="text-lg font-black text-gray-800 mb-3 leading-snug">{quiz.title}</h3>
+                              <div className="flex flex-wrap gap-3 text-xs font-bold text-gray-400 mb-4">
+                                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{quiz.time_limit} min</span>
+                                <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5 text-amber-500" />{quiz.passing_score}%</span>
+                                <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{quiz.submission_count} attempts</span>
                               </div>
 
                               <div className="flex gap-2">
                                 <Button
-                                  className={`flex-1 gap-2 ${
+                                  className={`flex-1 gap-2 font-bold ${
                                     isExpanded
                                       ? "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                                      : "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90"
+                                      : "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90 shadow-sm"
                                   }`}
                                   variant={isExpanded ? "outline" : "default"}
                                   onClick={() => handleToggleQuestions(quiz.id)}
@@ -426,7 +471,7 @@ export default function TeacherQuizzesPage() {
                                   )}
                                 </Button>
                                 <Link href={`/dashboard/teacher/quizzes/${quiz.id}`}>
-                                  <Button variant="outline" size="icon" className="shrink-0" title="Full detail page">
+                                  <Button variant="outline" size="icon" className="shrink-0 rounded-xl" title="Full detail page">
                                     <ExternalLink className="h-4 w-4" />
                                   </Button>
                                 </Link>
@@ -510,7 +555,6 @@ export default function TeacherQuizzesPage() {
                                 </motion.div>
                               )}
                             </AnimatePresence>
-
                           </CardContent>
                         </Card>
                       </motion.div>
@@ -522,12 +566,12 @@ export default function TeacherQuizzesPage() {
           })}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex flex-col items-center justify-center py-20 bg-white/50 rounded-[40px] border-2 border-dashed border-gray-100">
           <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-cyan-100 to-blue-100">
             <CheckSquare className="h-12 w-12 text-cyan-500" />
           </div>
-          <h3 className="mb-2 text-xl font-bold text-gray-800">No quizzes yet</h3>
-          <p className="text-gray-500">Create your first quiz to test students</p>
+          <h3 className="mb-2 text-xl font-bold text-gray-800">No quizzes found</h3>
+          <p className="text-gray-500 text-sm max-w-xs text-center px-4">There are no quizzes available for the selected class.</p>
         </div>
       )}
     </div>

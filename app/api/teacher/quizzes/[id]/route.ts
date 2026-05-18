@@ -128,3 +128,81 @@ export async function DELETE(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id || session.user.role !== "teacher") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = await params
+    const teacherId = parseInt(session.user.id, 10)
+    
+    // Verify course ownership
+    const [quiz] = await sql`
+      SELECT q.id FROM quizzes q
+      JOIN courses c ON q.course_id = c.id
+      WHERE q.id = ${id} AND c.teacher_id = ${teacherId}
+    `
+    if (!quiz) {
+      return NextResponse.json({ error: "Quiz not found" }, { status: 404 })
+    }
+
+    const { title, description, timeLimit, passingScore, maxAttempts, status, questions } = await request.json()
+
+    if (!title?.trim()) {
+      return NextResponse.json({ error: "Quiz title is required." }, { status: 400 })
+    }
+
+    // Update quiz basic info
+    await sql`
+      UPDATE quizzes
+      SET title = ${title},
+          description = ${description || null},
+          time_limit = ${timeLimit || 30},
+          passing_score = ${passingScore || 70},
+          max_attempts = ${maxAttempts || 3},
+          status = ${status || 'published'}
+      WHERE id = ${id}
+    `
+
+    if (questions && Array.isArray(questions)) {
+      // Delete existing questions and options for this quiz
+      // Cascades automatically via ON DELETE CASCADE constraints
+      await sql`DELETE FROM quiz_questions WHERE quiz_id = ${id}`
+
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i]
+        const questionResult = await sql`
+          INSERT INTO quiz_questions (quiz_id, question, order_number)
+          VALUES (${id}, ${q.question}, ${i + 1})
+          RETURNING id
+        `
+        const questionId = questionResult[0].id
+
+        const options = [
+          { text: q.option1, isCorrect: q.correctAnswer === 1 },
+          { text: q.option2, isCorrect: q.correctAnswer === 2 },
+          { text: q.option3, isCorrect: q.correctAnswer === 3 },
+          { text: q.option4, isCorrect: q.correctAnswer === 4 },
+        ]
+
+        for (let j = 0; j < options.length; j++) {
+          await sql`
+            INSERT INTO quiz_options (question_id, option_text, is_correct, order_number)
+            VALUES (${questionId}, ${options[j].text}, ${options[j].isCorrect}, ${j + 1})
+          `
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Update quiz error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}

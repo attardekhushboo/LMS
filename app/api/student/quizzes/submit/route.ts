@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { sql } from "@/lib/db"
+import { updateCourseProgress } from "@/lib/progress"
 
 export async function POST(request: Request) {
   try {
@@ -56,6 +57,12 @@ export async function POST(request: Request) {
         INSERT INTO quiz_answers (response_id, question_id, selected_option_id)
         VALUES (${responseId}, ${qId}, ${oId})
       `
+    }
+
+    // 5. Update course progress
+    const [quizRow] = await sql`SELECT course_id FROM quizzes WHERE id = ${quizId}`
+    if (quizRow?.course_id) {
+      await updateCourseProgress(session.user.id, quizRow.course_id)
     }
 
     return NextResponse.json({ 

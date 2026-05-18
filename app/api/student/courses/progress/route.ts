@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { sql } from "@/lib/db"
+import { updateCourseProgress } from "@/lib/progress"
 
 export async function PATCH(request: Request) {
   try {
@@ -30,42 +31,12 @@ export async function PATCH(request: Request) {
       `
     }
 
-    // 2. Re-calculate overall course progress
-    const [stats] = await sql`
-      SELECT 
-        (SELECT COUNT(*) FROM modules WHERE course_id = ${courseId}) as total_modules,
-        (SELECT COUNT(*) FROM module_progress mp 
-         JOIN modules m ON mp.module_id = m.id 
-         WHERE m.course_id = ${courseId} AND mp.user_id = ${session.user.id} AND mp.completed = true) as completed_count
-    `
-
-    const totalModules = parseInt(stats.total_modules || "0")
-    const completedCount = parseInt(stats.completed_count || "0")
-    const progressPercent = totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0
-
-    // 3. Update enrollment table
-    if (progressPercent === 100) {
-      await sql`
-        UPDATE enrollments 
-        SET progress = ${progressPercent}, 
-            updated_at = NOW(),
-            completed_at = NOW()
-        WHERE user_id = ${session.user.id} AND course_id = ${courseId}
-      `
-    } else {
-      await sql`
-        UPDATE enrollments 
-        SET progress = ${progressPercent}, 
-            updated_at = NOW(),
-            completed_at = NULL
-        WHERE user_id = ${session.user.id} AND course_id = ${courseId}
-      `
-    }
+    // 2. Re-calculate overall course progress including quiz + assignment
+    const result = await updateCourseProgress(session.user.id, courseId)
 
     return NextResponse.json({ 
       success: true, 
-      progress: progressPercent,
-      isNewlyCompleted: progressPercent === 100 
+      ...result
     })
   } catch (error) {
     console.error("Progress update error:", error)
