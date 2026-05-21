@@ -41,7 +41,7 @@ export async function GET(
 
     // 3. Fetch Questions & Options
     const questions = await sql`
-      SELECT q.id, q.question, q.question_type, q.points, q.order_number, q.option1, q.option2, q.option3, q.option4
+      SELECT q.id, q.question, q.question_type, q.points, q.order_number
       FROM quiz_questions q
       WHERE q.quiz_id = ${id}
       ORDER BY q.order_number ASC
@@ -79,17 +79,6 @@ export async function GET(
         .filter((o: any) => o.question_id === q.id)
         .sort((a: any, b: any) => a.order_number - b.order_number)
       
-      // Fallback to legacy fields if no options in new table
-      if (qOpts.length === 0) {
-        return {
-          ...q,
-          option1: q.option1 || "",
-          option2: q.option2 || "",
-          option3: q.option3 || "",
-          option4: q.option4 || "",
-        }
-      }
-
       return {
         ...q,
         option1: qOpts[0]?.option_text ?? "",

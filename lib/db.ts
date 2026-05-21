@@ -4,13 +4,18 @@ const dbUrl = process.env.DATABASE_URL?.replace(/^['"]|['"]$/g, '')
 const sql_neon = neon(dbUrl!)
 
 export const sql = async (
-  strings: TemplateStringsArray,
+  strings: TemplateStringsArray | string,
   ...values: unknown[]
 ) => {
-  // 1. Build the query string with $1, $2, etc. placeholders for PostgreSQL
-  let query = strings[0]
-  for (let i = 1; i < strings.length; i++) {
-    query += `$${i}` + strings[i]
+  let query = ""
+  if (typeof strings === "string") {
+    query = strings
+  } else {
+    // 1. Build the query string with $1, $2, etc. placeholders for PostgreSQL
+    query = strings[0]
+    for (let i = 1; i < strings.length; i++) {
+      query += `$${i}` + strings[i]
+    }
   }
 
   // 2. Compatibility: Replace SQLite-specific syntax with PostgreSQL equivalents

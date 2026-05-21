@@ -123,7 +123,7 @@ export default function InstitutionCoursesPage() {
                 type="text"
                 placeholder="Search by title or topic..."
                 value={searchQuery}
-                onChange={(e) => searchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-10 rounded-xl border-gray-100 bg-gray-50/50 py-2 py-2.5 pl-10 pr-4 text-xs font-semibold placeholder-gray-400 transition-all focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
               />
             </div>

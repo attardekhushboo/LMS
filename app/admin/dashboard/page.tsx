@@ -102,28 +102,29 @@ export default function AdminDashboard() {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 p-8 text-white shadow-2xl"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 p-8 text-white shadow-2xl"
       >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 blur-[80px] rounded-full -mr-20 -mt-20" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full -mr-20 -mt-20" />
+        <div className="absolute bottom-[-10px] left-[-10px] w-40 h-40 bg-white/10 blur-[80px] rounded-full" />
         
         <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-5">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 shadow-lg shadow-blue-500/20">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20">
               <Shield className="h-8 w-8 text-white" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">Admin Command Center</h1>
-              <p className="text-slate-400">Strategic overview of the NextGen platform</p>
+              <p className="text-white/90">Strategic overview of the NextGen platform</p>
             </div>
           </div>
           <div className="flex gap-3">
              <Link href="/dashboard/admin/users">
-               <Button className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold">
+               <Button className="bg-white/20 hover:bg-white/30 border-0 text-white font-semibold">
                  Manage Users
                </Button>
              </Link>
-             <Link href="/dashboard/admin/approvals">
-               <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-600/20">
+             <Link href="/admin/approvals">
+               <Button className="bg-white hover:bg-white/90 text-emerald-600 font-bold shadow-lg shadow-white/10">
                  System Approvals
                </Button>
              </Link>

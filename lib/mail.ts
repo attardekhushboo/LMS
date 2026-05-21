@@ -6,7 +6,7 @@ const transporter = nodemailer.createTransport({
   secure: process.env.SMTP_SECURE === "true",
   auth: {
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    pass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD,
   },
 })
 
@@ -22,7 +22,7 @@ export async function sendEmail({
   html?: string
 }) {
   // If SMTP is not configured, log to console for development
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  if (!process.env.SMTP_USER || !(process.env.SMTP_PASS || process.env.SMTP_PASSWORD)) {
     console.log("------------------------------------------")
     console.log("📧 EMAIL (MOCKED - CONFIGURE SMTP IN ENV)")
     console.log("To:", to)

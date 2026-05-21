@@ -11,19 +11,21 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth
   const role = req.auth?.user?.role
 
-  const isAdminDashboardRoute = nextUrl.pathname.startsWith('/admin/dashboard')
-  const isAdminLoginRoute = nextUrl.pathname === '/admin/login'
+  const isAdminDashboardRoute = nextUrl.pathname.startsWith('/admin/') || nextUrl.pathname === '/admin'
+  const isAdminLoginRoute = nextUrl.pathname === '/admin-login'
 
-  // 1. Strict protection for ONLY admin dashboard routes
+  // 1. Strict protection for ONLY admin routes
   if (isAdminDashboardRoute) {
     if (!isLoggedIn || role !== 'admin') {
-      return NextResponse.redirect(new URL('/admin/login', nextUrl))
+      return NextResponse.redirect(new URL('/admin-login', nextUrl))
     }
   }
 
-  // 2. Prevent logged-in admins from seeing the login page
+  // 2. Prevent logged-in admins from seeing the login page, unless forceLogin is requested
   if (isAdminLoginRoute && isLoggedIn && role === 'admin') {
-    return NextResponse.redirect(new URL('/admin/dashboard', nextUrl))
+    if (nextUrl.searchParams.get('forceLogin') !== 'true') {
+      return NextResponse.redirect(new URL('/admin/dashboard', nextUrl))
+    }
   }
 
   return NextResponse.next()

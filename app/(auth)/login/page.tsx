@@ -25,6 +25,12 @@ export default function LoginPage() {
     setError("")
     setIsLoading(true)
 
+    if (email.toLowerCase() === "admin@nextgenschool.com") {
+      setError("Administrator accounts must sign in through the Admin Login page.")
+      setIsLoading(false)
+      return
+    }
+
     try {
       const result = await signIn("credentials", {
         email,
@@ -41,7 +47,7 @@ export default function LoginPage() {
       if (result?.ok) {
         // Fetch session to determine the exact role using next-auth getSession
         try {
-          const sessionData = await getSession()
+          const sessionData = await getSession() as any
           console.log("Login sessionData:", sessionData)
           
           if (sessionData?.user?.role) {
@@ -221,7 +227,7 @@ export default function LoginPage() {
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600 mb-3">Are you an administrator?</p>
           <Link
-            href="/admin/login"
+            href="/admin-login?forceLogin=true"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold transition-colors hover:text-red-800"
           >
             <ShieldAlert className="h-4 w-4" />

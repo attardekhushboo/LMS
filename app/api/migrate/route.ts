@@ -13,6 +13,9 @@ const migrations = [
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`,
 
+  // Add status column to institutions if missing
+  `ALTER TABLE institutions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'pending'`,
+
   // Users table
   `CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -110,6 +113,10 @@ const migrations = [
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`,
 
+  // Ensure new columns are added if quiz_questions table already existed
+  `ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS question_type VARCHAR(50) DEFAULT 'multiple_choice'`,
+  `ALTER TABLE quiz_questions ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 10`,
+ 
   // Remove legacy option columns from quiz_questions if they exist
   // (options are stored in quiz_options table, not as columns)
   `ALTER TABLE quiz_questions DROP COLUMN IF EXISTS option1`,
@@ -205,7 +212,19 @@ const migrations = [
   // Seed default platform settings row if not exists
   `INSERT INTO platform_settings (id, allow_registration, auto_approve_teachers)
    VALUES (1, TRUE, FALSE)
-   ON CONFLICT (id) DO NOTHING`
+   ON CONFLICT (id) DO NOTHING`,
+
+  // Pending registrations table for Email OTP Registration flow
+  `CREATE TABLE IF NOT EXISTS pending_registrations (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    user_type VARCHAR(50) NOT NULL,
+    registration_data JSONB NOT NULL,
+    otp_hash VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    is_verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`
 ]
 
 export async function GET() {

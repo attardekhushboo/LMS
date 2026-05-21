@@ -38,6 +38,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return null
           }
 
+          // Strict role check: Admin can only log in if loginType is "admin"
+          if (user.role === "admin" && credentials.loginType !== "admin") {
+            console.log(`🔑 Auth: Admin login blocked on standard login form`)
+            return null
+          }
+
           // Strict role check for admin login
           if (credentials.loginType === "admin") {
             if (user.role !== "admin") {

@@ -257,8 +257,8 @@ export default function InstitutionPerformancePage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3.5">
-                            <Progress value={student.avg_progress} className="h-2 w-24" />
-                            <span className="text-xs font-black text-gray-700">{Math.round(student.avg_progress)}%</span>
+                            <Progress value={student.avgProgress} className="h-2 w-24" />
+                            <span className="text-xs font-black text-gray-700">{Math.round(student.avgProgress)}%</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">

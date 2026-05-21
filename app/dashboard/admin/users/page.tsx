@@ -129,17 +129,76 @@ export default function AdminUsersPage() {
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          { label: "Total", value: counts.all, icon: Users, color: "from-emerald-500 to-teal-500" },
-          { label: "Students", value: counts.student, icon: GraduationCap, color: "from-violet-500 to-purple-500" },
-          { label: "Teachers", value: counts.teacher, icon: BookOpen, color: "from-cyan-500 to-blue-500" },
-          { label: "Institutions", value: counts.institution, icon: Building2, color: "from-amber-500 to-orange-500" },
+          { 
+            label: "Total", 
+            value: roleFilter === "all" ? counts.all : roleFilter === "student" ? counts.student : roleFilter === "teacher" ? counts.teacher : counts.institution, 
+            icon: Users, 
+            color: "from-emerald-500 to-teal-500" 
+          },
+          { 
+            label: "Students", 
+            value: roleFilter === "all" || roleFilter === "student" ? counts.student : 0, 
+            icon: GraduationCap, 
+            color: "from-violet-500 to-purple-500" 
+          },
+          { 
+            label: "Teachers", 
+            value: roleFilter === "all" || roleFilter === "teacher" ? counts.teacher : 0, 
+            icon: BookOpen, 
+            color: "from-cyan-500 to-blue-500" 
+          },
+          { 
+            label: "Institutions", 
+            value: roleFilter === "all" || roleFilter === "institution" ? counts.institution : 0, 
+            icon: Building2, 
+            color: "from-amber-500 to-orange-500" 
+          },
         ].map(stat => (
-          <div key={stat.label} className={`rounded-2xl bg-gradient-to-br ${stat.color} p-5 text-white shadow-lg`}>
+          <div key={stat.label} className={`rounded-2xl bg-gradient-to-br ${stat.color} p-5 text-white shadow-lg transition-all duration-300`}>
             <stat.icon className="mb-2 h-6 w-6 opacity-80" />
             <p className="text-3xl font-extrabold">{stat.value}</p>
             <p className="text-sm opacity-80">{stat.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Role-Specific Tabs Navigation */}
+      <div className="flex border-b border-gray-200 overflow-x-auto scrollbar-none gap-2">
+        {[
+          { id: "all", label: "All Users", count: counts.all },
+          { id: "student", label: "Students", count: counts.student },
+          { id: "teacher", label: "Teachers", count: counts.teacher },
+          { id: "institution", label: "Institutions", count: counts.institution },
+        ].map((tab) => {
+          const isActive = roleFilter === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => { setRoleFilter(tab.id); setPage(1) }}
+              className={`relative pb-4 px-6 text-sm font-semibold transition-all shrink-0 ${
+                isActive
+                  ? "text-emerald-600 font-extrabold"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                {tab.label}
+                <span className={`rounded-full px-2 py-0.5 text-xs font-bold transition-all ${
+                  isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"
+                }`}>
+                  {tab.count}
+                </span>
+              </span>
+              {isActive && (
+                <motion.div
+                  layoutId="activeUserTabBorder"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
+            </button>
+          )
+        })}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -150,11 +209,10 @@ export default function AdminUsersPage() {
         <Select value={roleFilter} onValueChange={v => {setRoleFilter(v); setPage(1)}}>
           <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
+            <SelectItem value="all">All Users</SelectItem>
             <SelectItem value="student">Students</SelectItem>
             <SelectItem value="teacher">Teachers</SelectItem>
             <SelectItem value="institution">Institutions</SelectItem>
-            <SelectItem value="admin">Admins</SelectItem>
           </SelectContent>
         </Select>
       </div>

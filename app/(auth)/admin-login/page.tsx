@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { signIn } from "next-auth/react"
+import { useState, useEffect } from "react"
+import { signIn, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -19,6 +19,19 @@ export default function AdminLoginPage() {
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get("forceLogin") === "true") {
+        signOut({ redirect: false }).then(() => {
+          localStorage.clear()
+          sessionStorage.clear()
+          window.history.replaceState({}, document.title, window.location.pathname)
+        })
+      }
+    }
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -28,14 +41,15 @@ export default function AdminLoginPage() {
       const result = await signIn("credentials", {
         email,
         password,
-        role: "admin",
+        loginType: "admin",
         redirect: false,
       })
 
       if (result?.ok) {
-        router.push("/admin")
+        router.push("/admin/dashboard")
+        router.refresh()
       } else {
-        setError("Invalid admin credentials. Please try again.")
+        setError("Invalid administrator credentials.")
       }
     } catch (err) {
       setError("An error occurred during sign in. Please try again.")
@@ -46,10 +60,10 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-linear-to-br from-red-50 via-slate-50 to-orange-50">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-violet-50 via-slate-50 to-pink-50">
       {/* Background Effects */}
-      <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-red-200/20 blur-3xl" />
-      <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-orange-200/20 blur-3xl" />
+      <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-violet-200/20 blur-3xl" />
+      <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-pink-200/20 blur-3xl" />
       <div className="absolute top-1/2 left-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-200/10 blur-3xl" />
 
       <motion.div
@@ -58,19 +72,19 @@ export default function AdminLoginPage() {
         transition={{ duration: 0.5 }}
         className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12"
       >
-        <Link href="/login" className="mb-8 flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-red-500 to-orange-500 shadow-xl shadow-red-500/30">
-            <ShieldAlert className="h-8 w-8 text-white" />
+        <Link href="/" className="mb-8 flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-pink-500 shadow-xl shadow-violet-500/30">
+            <GraduationCap className="h-8 w-8 text-white" />
           </div>
-          <span className="bg-linear-to-r from-red-600 to-orange-600 bg-clip-text text-3xl font-extrabold text-transparent">
-            NextGen Admin
+          <span className="bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-3xl font-extrabold text-transparent">
+            NextGen School
           </span>
         </Link>
 
-        <Card className="border-0 bg-white/80 shadow-2xl shadow-red-500/10 backdrop-blur-lg w-full max-w-md">
+        <Card className="border-0 bg-white/80 shadow-2xl shadow-violet-500/10 backdrop-blur-lg w-full max-w-md">
           <CardHeader className="text-center pb-2">
-            <CardTitle className="text-3xl font-extrabold text-gray-800">Admin Portal</CardTitle>
-            <CardDescription className="text-base text-gray-600">Secure administrator access</CardDescription>
+            <CardTitle className="text-3xl font-extrabold text-gray-800">Administrator Login</CardTitle>
+            <CardDescription className="text-base text-gray-600">Sign in to manage the NextGen School platform</CardDescription>
           </CardHeader>
           <CardContent className="pt-4">
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -82,7 +96,7 @@ export default function AdminLoginPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="font-semibold text-gray-700">Admin Email</Label>
+                <Label htmlFor="email" className="font-semibold text-gray-700">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
@@ -91,7 +105,7 @@ export default function AdminLoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={isLoading}
-                  className="h-12 border-2 border-red-200 bg-white/70 text-base focus:border-red-400 focus:ring-red-400"
+                  className="h-12 border-2 border-violet-200 bg-white/70 text-base focus:border-violet-400 focus:ring-violet-400"
                 />
               </div>
 
@@ -105,13 +119,13 @@ export default function AdminLoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={isLoading}
-                  className="h-12 border-2 border-red-200 bg-white/70 text-base focus:border-red-400 focus:ring-red-400"
+                  className="h-12 border-2 border-violet-200 bg-white/70 text-base focus:border-violet-400 focus:ring-violet-400"
                 />
               </div>
 
               <Button
                 type="submit"
-                className="h-12 w-full bg-linear-to-r from-red-500 via-orange-500 to-red-600 text-base font-bold shadow-lg shadow-red-500/30 transition-all hover:scale-[1.02] hover:shadow-xl"
+                className="h-12 w-full bg-gradient-to-r from-violet-500 via-pink-500 to-rose-500 text-base font-bold text-white shadow-lg shadow-violet-500/20 transition-all hover:scale-[1.02] hover:shadow-xl"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -120,26 +134,25 @@ export default function AdminLoginPage() {
                     Signing in...
                   </>
                 ) : (
-                  "Sign In as Admin"
+                  "Sign In"
                 )}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
-              <span className="text-gray-600">Not an admin? </span>
-              <Link href="/login" className="font-bold text-red-600 hover:text-orange-600 hover:underline">
-                Go back to main login
+              <Link href="/login" className="font-bold text-violet-600 hover:text-pink-600 hover:underline">
+                Return to Main Login
               </Link>
             </div>
 
-            <div className="mt-6 rounded-2xl bg-linear-to-r from-red-50 to-orange-50 p-5 ring-1 ring-red-200/50">
+            <div className="mt-6 rounded-2xl bg-gradient-to-r from-violet-50 to-pink-50 p-5 ring-1 ring-violet-200/50">
               <div className="flex items-start gap-3">
-                <ShieldAlert className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                <ShieldAlert className="h-5 w-5 text-violet-600 mt-0.5 shrink-0" />
                 <div>
                   <p className="font-bold text-gray-700 mb-2">Demo Admin Account:</p>
                   <div className="space-y-1.5 text-sm text-gray-600">
-                    <p><span className="font-semibold text-red-600">Email:</span> admin@nextgenschool.com</p>
-                    <p><span className="font-semibold text-red-600">Password:</span> demo123</p>
+                    <p><span className="font-semibold text-violet-600">Email:</span> admin@nextgenschool.com</p>
+                    <p><span className="font-semibold text-violet-600">Password:</span> demo123</p>
                     <p className="text-xs text-gray-500 mt-3">Full access to admin dashboard, user management, course approvals, and system settings.</p>
                   </div>
                 </div>
