@@ -79,18 +79,7 @@ export async function POST(request: Request) {
       VALUES (${email}, ${accountType}, ${otpHash}, ${expiresAt}, FALSE)
     `
 
-    // 8. Log the OTP to the Node.js server logs for local testing
-    console.log(`
-      ==================================================
-      🔓 [PASSWORD RESET OTP]
-      To: ${email}
-      Account Type: ${accountType}
-      OTP Code: ${otp}
-      Expires: 10 minutes (at ${expiresAt.toLocaleTimeString()})
-      ==================================================
-    `)
-
-    // 9. Deliver via SMTP if host details are specified in env
+    // 8. Deliver via SMTP if host details are specified in env
     if (process.env.SMTP_HOST) {
       try {
         const transporter = nodemailer.createTransport({
@@ -122,7 +111,7 @@ export async function POST(request: Request) {
         })
       } catch (emailError) {
         console.error("Nodemailer error:", emailError)
-        // Graceful fallback to return OK since the OTP is printed to server logs for developer manual verification
+        // Keep the OTP hashed in the database and avoid leaking it through logs.
       }
     }
 

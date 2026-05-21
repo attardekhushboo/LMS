@@ -8,8 +8,6 @@ export async function GET() {
     const isStudent = (session?.user as any)?.role === 'student'
     const studentClass = (session?.user as any)?.class
 
-    console.log("Student Class:", (session?.user as any)?.class);
-
     let courses;
     if (isStudent && studentClass !== undefined && studentClass !== null) {
       courses = await sql`

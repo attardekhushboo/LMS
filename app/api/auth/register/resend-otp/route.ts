@@ -2,8 +2,6 @@ import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
 import { sql } from "@/lib/db"
 import nodemailer from "nodemailer"
-import fs from "fs"
-import path from "path"
 
 export async function POST(request: Request) {
   try {
@@ -49,17 +47,6 @@ export async function POST(request: Request) {
     // 3. Generate a new 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString()
 
-    // Write OTP to a temporary test file for programmatic testing
-    try {
-      const scratchDir = path.join(process.cwd(), "scratch")
-      if (!fs.existsSync(scratchDir)) {
-        fs.mkdirSync(scratchDir, { recursive: true })
-      }
-      fs.writeFileSync(path.join(scratchDir, "latest-otp.txt"), otp, "utf8")
-    } catch (fsErr) {
-      console.error("Failed to write latest-otp.txt file:", fsErr)
-    }
-
     const otpHash = await hash(otp, 10)
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // Fresh 10 minutes
 
@@ -83,18 +70,7 @@ export async function POST(request: Request) {
       VALUES (${email}, ${pending.user_type}, ${JSON.stringify(regData)}, ${otpHash}, ${expiresAt})
     `
 
-    // 5. Print OTP to console log for developer testing
-    console.log(`
-      ==================================================
-      🔄 [RESENT REGISTRATION OTP]
-      To: ${email}
-      Role: ${pending.user_type}
-      OTP Code: ${otp}
-      Expires: 10 minutes (at ${expiresAt.toLocaleTimeString()})
-      ==================================================
-    `)
-
-    // 6. Deliver email via SMTP
+    // 5. Deliver email via SMTP
     if (process.env.SMTP_HOST) {
       try {
         const transporter = nodemailer.createTransport({

@@ -10,7 +10,6 @@ export async function GET() {
     }
 
     const institutionId = (session.user as any).institutionId
-    console.log("DEBUG: Institution Fetching Courses", { institutionId });
 
     // Fetch courses with enrollment counts
     const courses = await sql`
@@ -26,8 +25,6 @@ export async function GET() {
       WHERE c.institution_id = ${institutionId}
       ORDER BY c.created_at DESC
     `
-
-    console.log(`DEBUG: Found ${courses.length} courses for institution ${institutionId}`);
 
     return NextResponse.json(courses)
   } catch (error) {

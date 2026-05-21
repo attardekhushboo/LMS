@@ -1,11 +1,9 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
-import { compare, hashSync } from 'bcryptjs'
+import { compare } from 'bcryptjs'
 import { sql } from './db'
 import type { UserRole } from './types'
 import { authConfig } from './auth.config'
-
-
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -20,11 +18,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         try {
           if (!credentials?.email || !credentials?.password) {
-            console.log("🔑 Auth: Missing credentials")
             return null
           }
-
-          console.log(`🔑 Auth: Attempting login for ${credentials.email}`)
 
           const users = await sql`
             SELECT id, email, name, password_hash, role, is_approved, institution_id, class
@@ -34,31 +29,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           const user = users[0]
           if (!user) {
-            console.log(`🔑 Auth: User not found for ${credentials.email}`)
             return null
           }
 
-          // Strict role check: Admin can only log in if loginType is "admin"
-          if (user.role === "admin" && credentials.loginType !== "admin") {
-            console.log(`🔑 Auth: Admin login blocked on standard login form`)
+          // Admin accounts are accepted only from the dedicated admin login form.
+          if (user.role === 'admin' && credentials.loginType !== 'admin') {
             return null
           }
 
-          // Strict role check for admin login
-          if (credentials.loginType === "admin") {
-            if (user.role !== "admin") {
-              console.log(`🔑 Auth: Admin login attempted by non-admin role: ${user.role}`)
-              return null
-            }
+          if (credentials.loginType === 'admin' && user.role !== 'admin') {
+            return null
           }
 
           const isValid = await compare(credentials.password as string, user.password_hash)
           if (!isValid) {
-            console.log(`🔑 Auth: Invalid password for ${credentials.email}`)
             return null
           }
-
-          console.log(`🔑 Auth: Login successful for ${credentials.email}`)
 
           return {
             id: String(user.id),
@@ -70,7 +56,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             class: user.class ? Number(user.class) : undefined,
           }
         } catch (error) {
-          console.error("❌ Auth error:", error)
+          console.error('Auth error:', error)
           return null
         }
       },

@@ -12,10 +12,6 @@ export async function GET() {
     const teacherId = parseInt(session.user.id, 10)
     const teacherEmail = session.user.email
 
-    if (process.env.NODE_ENV === "development") {
-      console.log("TEACHER EMAIL:", teacherEmail, "| ID:", teacherId)
-    }
-
     // Total courses
     const coursesResult = await sql`
       SELECT COUNT(*) as count

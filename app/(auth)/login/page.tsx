@@ -48,7 +48,6 @@ export default function LoginPage() {
         // Fetch session to determine the exact role using next-auth getSession
         try {
           const sessionData = await getSession() as any
-          console.log("Login sessionData:", sessionData)
           
           if (sessionData?.user?.role) {
             router.push(`/dashboard/${sessionData.user.role}`)

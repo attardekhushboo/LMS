@@ -10,8 +10,6 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    const userId = session.user.id
-    console.log("DEBUG: Student Accessing Assignments", { userId, email: session.user.email });
 
     const assignments = await sql`
       SELECT 

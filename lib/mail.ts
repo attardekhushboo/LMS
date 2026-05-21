@@ -21,14 +21,8 @@ export async function sendEmail({
   text: string
   html?: string
 }) {
-  // If SMTP is not configured, log to console for development
+  // Keep local/dev flows non-blocking without exposing OTPs or message bodies in logs.
   if (!process.env.SMTP_USER || !(process.env.SMTP_PASS || process.env.SMTP_PASSWORD)) {
-    console.log("------------------------------------------")
-    console.log("📧 EMAIL (MOCKED - CONFIGURE SMTP IN ENV)")
-    console.log("To:", to)
-    console.log("Subject:", subject)
-    console.log("Body:", text)
-    console.log("------------------------------------------")
     return { success: true, mocked: true }
   }
 
@@ -40,7 +34,6 @@ export async function sendEmail({
       text,
       html: html || text,
     })
-    console.log("Email sent: %s", info.messageId)
     return { success: true, messageId: info.messageId }
   } catch (error) {
     console.error("Error sending email:", error)
@@ -54,7 +47,7 @@ export const mailTemplates = {
     text: `Hi ${studentName},\n\nGreat news! Your teacher has approved your enrollment in "${courseTitle}". You can now access all the modules, quizzes, and assignments.\n\nStart learning here: ${process.env.NEXTAUTH_URL}/dashboard/student/courses\n\nHappy Learning!`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #8b5cf6;">Welcome Aboard! 🎉</h2>
+        <h2 style="color: #8b5cf6;">Welcome Aboard!</h2>
         <p>Hi <strong>${studentName}</strong>,</p>
         <p>Great news! Your teacher has approved your enrollment in <strong>"${courseTitle}"</strong>.</p>
         <p>You can now access all the lessons, take quizzes, and submit your assignments.</p>
@@ -70,7 +63,7 @@ export const mailTemplates = {
     text: `Hi ${studentName},\n\nYou did it! Your official certificate for completing "${courseTitle}" has been issued.\n\nYour Certificate ID: ${certNumber}\n\nView it here: ${process.env.NEXTAUTH_URL}/verify-certificate/${certNumber}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #10b981;">Achievement Unlocked! 🏆</h2>
+        <h2 style="color: #10b981;">Achievement Unlocked!</h2>
         <p>Hi <strong>${studentName}</strong>,</p>
         <p>You did it! Your official certificate for completing <strong>"${courseTitle}"</strong> has been issued.</p>
         <p><strong>Certificate ID:</strong> ${certNumber}</p>

@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { sql } from '@/lib/db'
+import { requireAdminApi } from '@/lib/admin-api-guard'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    const guard = await requireAdminApi()
+    if (guard) return guard
+
     // Demo institutions
     const institutions = [
       {

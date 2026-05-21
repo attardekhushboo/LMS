@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { sql } from '@/lib/db'
+import { requireAdminApi } from '@/lib/admin-api-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -229,6 +230,9 @@ const migrations = [
 
 export async function GET() {
   try {
+    const guard = await requireAdminApi()
+    if (guard) return guard
+
     // Run all migrations
     for (const migration of migrations) {
       await sql(migration)

@@ -9,10 +9,6 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (process.env.NODE_ENV === "development") {
-      console.log("USER ID:", session.user.id);
-    }
-
     const [
       usersCount, 
       studentsCount, 

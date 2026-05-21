@@ -68,12 +68,21 @@ async function seed() {
           RETURNING id
         `;
 
-        // Add 2 Questions
+        // Add 2 Questions with choices in quiz_options table
         for (let q = 1; q <= 2; q++) {
-          await sql`
-            INSERT INTO quiz_questions (quiz_id, question, option1, option2, option3, option4, correct_answer)
-            VALUES (${quiz.id}, ${`Question ${q}?`}, 'Answer A', 'Answer B', 'Answer C', 'Answer D', 1)
+          const [question] = await sql`
+            INSERT INTO quiz_questions (quiz_id, question, order_number, points)
+            VALUES (${quiz.id}, ${`Question ${q}?`}, ${q}, 10)
+            RETURNING id
           `;
+
+          const choices = ['Answer A', 'Answer B', 'Answer C', 'Answer D'];
+          for (let index = 0; index < choices.length; index++) {
+            await sql`
+              INSERT INTO quiz_options (question_id, option_text, is_correct, order_number)
+              VALUES (${question.id}, ${choices[index]}, ${index === 0}, ${index + 1})
+            `;
+          }
         }
 
         // Enroll demo student in some courses

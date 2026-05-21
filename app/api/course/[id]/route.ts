@@ -28,9 +28,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const body = await request.json()
     const { title, description, class: classGrade, thumbnail } = body
     
-    console.log("Course ID:", id)
-    console.log("User ID:", session.user.id)
-    
     if (!title || !description || !classGrade) {
        return NextResponse.json({ error: "Title, description, and class are required" }, { status: 400 })
     }

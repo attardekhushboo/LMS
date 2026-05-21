@@ -10,11 +10,6 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("DEBUG: Teacher Fetching Enrollments", { 
-      userId: session.user.id, 
-      role: session.user.role 
-    });
-
     const teacherId = parseInt(session.user.id, 10)
 
     const enrollments = await sql`

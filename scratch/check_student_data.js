@@ -1,6 +1,4 @@
-const { neon } = require('@neondatabase/serverless')
-const DB = 'postgresql://neondb_owner:npg_DLJ0aFhT2twe@ep-blue-glade-a1pdwfcg-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
-const sql = neon(DB)
+const { sql } = require('./db')
 
 async function run() {
   // 1. Students

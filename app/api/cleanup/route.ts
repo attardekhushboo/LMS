@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { requireAdminApi } from "@/lib/admin-api-guard"
 
 export async function GET() {
   try {
+    const guard = await requireAdminApi()
+    if (guard) return guard
+
     const results = { quizzes: 0, assignments: 0 }
     
     // Delete duplicate quizzes

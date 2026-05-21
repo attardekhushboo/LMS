@@ -2,8 +2,6 @@ import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
 import { sql } from "@/lib/db"
 import nodemailer from "nodemailer"
-import fs from "fs"
-import path from "path"
 
 // Helper function to validate password complexity
 function validatePassword(password: string): string | null {
@@ -117,17 +115,6 @@ export async function POST(request: Request) {
     // 6. Generate secure 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString()
 
-    // Write OTP to a temporary test file for programmatic testing
-    try {
-      const scratchDir = path.join(process.cwd(), "scratch")
-      if (!fs.existsSync(scratchDir)) {
-        fs.mkdirSync(scratchDir, { recursive: true })
-      }
-      fs.writeFileSync(path.join(scratchDir, "latest-otp.txt"), otp, "utf8")
-    } catch (fsErr) {
-      console.error("Failed to write latest-otp.txt file:", fsErr)
-    }
-
     // 7. Hash password and OTP securely
     const passwordHash = await hash(password, 10)
     const otpHash = await hash(otp, 10)
@@ -155,18 +142,7 @@ export async function POST(request: Request) {
       VALUES (${email}, ${role}, ${JSON.stringify(registrationData)}, ${otpHash}, ${expiresAt})
     `
 
-    // 10. Print OTP to console log for developer testing
-    console.log(`
-      ==================================================
-      ✉️ [REGISTRATION OTP]
-      To: ${email}
-      Role: ${role}
-      OTP Code: ${otp}
-      Expires: 10 minutes (at ${expiresAt.toLocaleTimeString()})
-      ==================================================
-    `)
-
-    // 11. Send SMTP email if SMTP is configured
+    // 10. Send SMTP email if SMTP is configured
     if (process.env.SMTP_HOST) {
       try {
         const transporter = nodemailer.createTransport({

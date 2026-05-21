@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { hash, compare } from 'bcryptjs'
 import { sql } from '@/lib/db'
+import { requireAdminApi } from '@/lib/admin-api-guard'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
+    const guard = await requireAdminApi()
+    if (guard) return guard
+
     // Test password hashing
     const testPassword = 'demo123'
     const hashedPassword = await hash(testPassword, 10)

@@ -30,9 +30,6 @@ export async function GET() {
         AND c.teacher_id = ${teacherId}
       ORDER BY c.class ASC, c.created_at DESC
     `
-    if (process.env.NODE_ENV === "development") {
-      console.log("TEACHER EMAIL:", teacherEmail, "| ID:", teacherId, "| courses found:", courses.length)
-    }
 
     return NextResponse.json(courses)
   } catch (error) {
